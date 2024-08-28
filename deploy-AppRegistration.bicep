@@ -1,113 +1,158 @@
-@description('The location to deploy resources to')
+ @ description('The location to deploy resources to')
 param location string = resourceGroup().location
 
-@description('The target environment')
-@allowed([
-  'dev'
-  'test'
-  'staging'
-  'prod'
-])
-param environment string = 'dev'
+     @ description('The target environment')
+     @ allowed([
+            'dev'
+            'test'
+            'staging'
+            'prod'
+        ])
+    param environment string = 'dev'
 
-@minLength(1)
-@maxLength(2) // controls resource name length violations
-@description('Optional. The sequence number to use in the resource naming. Default: 01')
-param sequenceNumber string = '01'
+     @ minLength(1)
+     @ maxLength(2) // controls resource name length violations
+     @ description('Optional. The sequence number to use in the resource naming. Default: 01')
+    param sequenceNumber string = '01'
 
-@minLength(1)
-@maxLength(8) // controls resource name length violations
-@description('Required. The application name (e.g. arc, polaris, etc.) to use in the resource naming.')
-param applicationName string
+     @ minLength(1)
+     @ maxLength(8) // controls resource name length violations
+     @ description('Required. The application name (e.g. arc, polaris, etc.) to use in the resource naming.')
+    param applicationName string
 
-@minLength(1)
-@maxLength(8) // controls resource name length violations
-@description('Required. The department code (e.g. dah, ehps, cap, etc.) to use in the resource naming.')
-param departmentCode string
+     @ minLength(1)
+     @ maxLength(8) // controls resource name length violations
+     @ description('Required. The department code (e.g. dah, ehps, cap, etc.) to use in the resource naming.')
+    param departmentCode string
 
-@description('Required. Azure AD app registration client id.')
-param clientId string
+     @ description('Required. Azure AD app registration client id.')
+    param clientId string
 
-var environmentMap = { dev: 'dev', test: 'tst', staging: 'stg', prod: 'prd' }
+    var environmentMap = {
+    dev: 'dev',
+    test: 'tst',
+    staging: 'stg',
+    prod: 'prd'
+}
 
 var resourceName = {
-  applicationName: applicationName
-  departmentCode: departmentCode
-  environment: environmentMap[environment]
-  sequenceNumber: sequenceNumber
+    applicationName: applicationName
+    departmentCode: departmentCode
+    environment: environmentMap[environment]
+    sequenceNumber: sequenceNumber
 }
 
 var webappname = toLower('app-${resourceName.applicationName}-${resourceName.departmentCode}-${resourceName.environment}-${location}-${resourceName.sequenceNumber}')
 
-resource app 'Microsoft.Web/sites@2021-03-01' existing = {
-  name: webappname
+    resource app 'Microsoft.Web/sites@2021-03-01' existing = {
+    name: webappname
 }
 
 resource azureAADAuthSettings 'Microsoft.Web/sites/config@2022-03-01' = {
-  name: 'authsettingsV2'
-  kind: 'webapp'
-  parent: app
-  properties: {
-      failedRequestsTracing: {
-              enabled: bool
-          }
-      globalValidation: {
-        redirectToProvider: 'azureactivedirectory'
-        requireAuthentication: true
-        unauthenticatedClientAction: 'RedirectToLoginPage'
-      }
-      httpSettings: {
-        forwardProxy: {
-          convention: 'NoProxy'
+    name: 'authsettingsV2'
+    kind: 'webapp'
+    parent: app
+    properties: {
+        failedRequestsTracing: {
+            enabled: bool
         }
-        requireHttps: true
-        routes: {
-          apiPrefix: '/.auth'
+        globalValidation: {
+            redirectToProvider: 'azureactivedirectory'
+            requireAuthentication: true
+            unauthenticatedClientAction: 'RedirectToLoginPage'
         }
-      }
-      identityProviders: {
-        azureActiveDirectory: {
-          enabled: true
-          login: {
-            disableWWWAuthenticate: false
-          }
-          registration: {
-            clientId: clientId
-            clientSecretSettingName: 'MICROSOFT_PROVIDER_AUTHENTICATION_SECRET'
-            openIdIssuer: 'https://sts.windows.net/${tenant().tenantId}/v2.0/'
-          }
-          validation: {
-            jwtClaimChecks: {}
-            allowedAudiences: [
-                'api://${clientId}'
-            ]
-            defaultAuthorizationPolicy: {
-                allowedPrincipals: {}
+        httpSettings: {
+            forwardProxy: {
+                convention: 'NoProxy'
             }
-          }
+            requireHttps: true
+            routes: {
+                apiPrefix: '/.auth'
+            }
         }
-      }      
-      login: {
-        cookieExpiration: {
-          convention: 'FixedTime'
-          timeToExpiration: '08:00:00'
+        identityProviders: {
+            azureActiveDirectory: {
+                enabled: true
+                login: {
+                    disableWWWAuthenticate: false
+                }
+                registration: {
+                    clientId: clientId
+                    clientSecretSettingName: 'MICROSOFT_PROVIDER_AUTHENTICATION_SECRET'
+                    openIdIssuer: 'https://sts.windows.net/${tenant().tenantId}/v2.0/'
+                }
+                validation: {
+                    jwtClaimChecks: {}
+                    allowedAudiences: [
+                        'api://${clientId}'
+                    ]
+                    defaultAuthorizationPolicy: {
+                        allowedPrincipals: {}
+                    }
+                }
+            }
         }
-        nonce: {
-          nonceExpirationInterval: '00:05:00'
-          validateNonce: true
+        login: {
+            cookieExpiration: {
+                convention: 'FixedTime'
+                timeToExpiration: '08:00:00'
+            }
+            nonce: {
+                nonceExpirationInterval: '00:05:00'
+                validateNonce: true
+            }
+            preserveUrlFragmentsForLogins: false
+            routes: {}
+            tokenStore: {
+                azureBlobStorage: {}
+                enabled: true
+                fileSystem: {}
+                tokenRefreshExtensionHours: 72
+            }
         }
-        preserveUrlFragmentsForLogins: false
-        routes: {}
-        tokenStore: {
-          azureBlobStorage: {}
-          enabled: true
-          fileSystem: {}
-          tokenRefreshExtensionHours: 72
+        platform: {
+            enabled: true
+            runtimeVersion: '~1'
         }
+    }
+}
+
+resource symbolicname 'Microsoft.Web/sites/config@2022-09-01' = {
+  name: 'logs'
+  kind: 'string'
+  parent: resourceSymbolicName
+  properties: {
+    applicationLogs: {
+      azureBlobStorage: {
+        level: 'string'
+        retentionInDays: int
+        sasUrl: 'string'
       }
-      platform: {
-        enabled: true
-        runtimeVersion: '~1'
+      azureTableStorage: {
+        level: 'string'
+        sasUrl: 'string'
       }
+      fileSystem: {
+        level: 'string'
+      }
+    }
+    detailedErrorMessages: {
+      enabled: bool
+    }
+    failedRequestsTracing: {
+      enabled: bool
+    }
+    httpLogs: {
+      azureBlobStorage: {
+        enabled: bool
+        retentionInDays: int
+        sasUrl: 'string'
+      }
+      fileSystem: {
+        enabled: bool
+        retentionInDays: int
+        retentionInMb: int
+      }
+    }
   }
 }
