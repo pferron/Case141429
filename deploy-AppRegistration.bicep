@@ -53,9 +53,6 @@ resource azureAADAuthSettings 'Microsoft.Web/sites/config@2022-03-01' = {
     kind: 'webapp'
     parent: app
     properties: {
-        failedRequestsTracing: {
-            enabled: bool
-        }
         globalValidation: {
             redirectToProvider: 'azureactivedirectory'
             requireAuthentication: true
@@ -117,7 +114,8 @@ resource azureAADAuthSettings 'Microsoft.Web/sites/config@2022-03-01' = {
     }
 }
 
-resource symbolicname 'Microsoft.Web/sites/config@2022-09-01' = {
+
+resource symbolicname 'Microsoft.Web/sites/config@2022-03-01' = {
   name: 'logs'
   kind: 'string'
   parent: resourceSymbolicName
