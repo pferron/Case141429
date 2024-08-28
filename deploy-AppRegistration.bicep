@@ -48,6 +48,9 @@ resource azureAADAuthSettings 'Microsoft.Web/sites/config@2022-03-01' = {
   kind: 'webapp'
   parent: app
   properties: {
+      failedRequestsTracing: {
+              enabled: bool
+          }
       globalValidation: {
         redirectToProvider: 'azureactivedirectory'
         requireAuthentication: true
